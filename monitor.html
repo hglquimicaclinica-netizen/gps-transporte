@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor GPS · Transporte</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --fondo: #080B10;
+    --panel: #0D1017;
+    --card: #111520;
+    --borde: #1C2235;
+    --texto: #C8D4E8;
+    --gris: #4A5570;
+    --u1: #00E5FF;
+    --u2: #FF6B35;
+    --verde: #00E676;
+    --rojo: #FF1744;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--fondo);
+    color: var(--texto);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header */
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--borde);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-shrink: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 3px;
+    color: var(--texto);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--verde);
+    animation: blink 2s ease infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--verde); }
+    50% { opacity: 0.3; box-shadow: none; }
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .refresh-info {
+    font-size: 12px;
+    color: var(--gris);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .btn-refresh {
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    color: var(--u1);
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+
+  .btn-refresh:hover {
+    background: rgba(0,229,255,0.15);
+    border-color: var(--u1);
+  }
+
+  /* Layout principal */
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Panel izquierdo */
+  .sidebar {
+    width: 280px;
+    background: var(--panel);
+    border-right: 1px solid var(--borde);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--borde);
+  }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--gris);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Cards de unidad */
+  .unidad-card {
+    background: var(--card);
+    border: 1px solid var(--borde);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .unidad-card:hover { border-color: var(--gris); }
+
+  .unidad-card.u1-activa { border-color: rgba(0,229,255,0.3); background: rgba(0,229,255,0.04); }
+  .unidad-card.u2-activa { border-color: rgba(255,107,53,0.3); background: rgba(255,107,53,0.04); }
+
+  .unidad-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .unidad-nombre {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+  }
+
+  .unidad-nombre.u1 { color: var(--u1); }
+  .unidad-nombre.u2 { color: var(--u2); }
+
+  .badge-estado {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-activo {
+    background: rgba(0,230,118,0.15);
+    color: var(--verde);
+    border: 1px solid rgba(0,230,118,0.3);
+  }
+
+  .badge-sin-datos {
+    background: rgba(74,85,112,0.2);
+    color: var(--gris);
+    border: 1px solid var(--borde);
+  }
+
+  .coord-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .coord-item {
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 6px 8px;
+  }
+
+  .ci-label {
+    font-size: 9px;
+    color: var(--gris);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .ci-valor {
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--texto);
+    margin-top: 2px;
+  }
+
+  .unidad-time {
+    font-size: 11px;
+    color: var(--gris);
+    font-family: 'DM Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Historial */
+  .historial-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .historial-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--card);
+    border-radius: 8px;
+    border: 1px solid var(--borde);
+  }
+
+  .hist-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .hist-dot.u1 { background: var(--u1); }
+  .hist-dot.u2 { background: var(--u2); }
+
+  .hist-texto {
+    flex: 1;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--gris);
+  }
+
+  .hist-hora {
+    font-size: 10px;
+    color: var(--gris);
+    opacity: 0.6;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Mapa */
+  #mapa {
+    flex: 1;
+    background: #0a0d14;
+  }
+
+  /* Contador */
+  .contador-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .contador {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .contador-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    line-height: 1;
+  }
+
+  .contador-num.u1 { color: var(--u1); }
+  .contador-num.u2 { color: var(--u2); }
+
+  .contador-label {
+    font-size: 9px;
+    color: var(--gris);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* Popup personalizado */
+  .leaflet-popup-content-wrapper {
+    background: var(--card) !important;
+    border: 1px solid var(--borde) !important;
+    color: var(--texto) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+  }
+
+  .leaflet-popup-tip { background: var(--card) !important; }
+
+  @media (max-width: 600px) {
+    .sidebar { width: 100%; height: 50vh; border-right: none; border-bottom: 1px solid var(--borde); }
+    .layout { flex-direction: column; }
+    #mapa { height: 50vh; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    MONITOR GPS
+  </div>
+  <div class="header-right">
+    <span class="refresh-info" id="refreshInfo">Actualiza cada 15s</span>
+    <button class="btn-refresh" onclick="cargarDatos()">↻ Actualizar</button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <!-- Contadores -->
+    <div class="sidebar-section">
+      <div class="section-label">Registros recibidos</div>
+      <div class="contador-row">
+        <div class="contador">
+          <div class="contador-num u1" id="cnt1">—</div>
+          <div class="contador-label">Unidad 1</div>
+        </div>
+        <div class="contador">
+          <div class="contador-num u2" id="cnt2">—</div>
+          <div class="contador-label">Unidad 2</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unidades -->
+    <div class="sidebar-section">
+      <div class="section-label">Estado en tiempo real</div>
+
+      <div class="unidad-card" id="card1" onclick="centrarUnidad(1)">
+        <div class="unidad-header">
+          <span class="unidad-nombre u1">UNIDAD 1</span>
+          <span class="badge-estado badge-sin-datos" id="badge1">Sin datos</span>
+        </div>
+        <div class="coord-row">
+          <div class="coord-item">
+            <div class="ci-label">Latitud</div>
+            <div class="ci-valor" id="lat1">—</div>
+          </div>
+          <div class="coord-item">
+            <div class="ci-label">Longitud</div>
+            <div class="ci-valor" id="lng1">—</div>
+          </div>
+        </div>
+        <div class="unidad-time" id="time1">🕐 Sin señal reciente</div>
+      </div>
+
+      <div class="unidad-card" id="card2" onclick="centrarUnidad(2)">
+        <div class="unidad-header">
+          <span class="unidad-nombre u2">UNIDAD 2</span>
+          <span class="badge-estado badge-sin-datos" id="badge2">Sin datos</span>
+        </div>
+        <div class="coord-row">
+          <div class="coord-item">
+            <div class="ci-label">Latitud</div>
+            <div class="ci-valor" id="lat2">—</div>
+          </div>
+          <div class="coord-item">
+            <div class="ci-label">Longitud</div>
+            <div class="ci-valor" id="lng2">—</div>
+          </div>
+        </div>
+        <div class="unidad-time" id="time2">🕐 Sin señal reciente</div>
+      </div>
+    </div>
+
+    <!-- Historial -->
+    <div class="sidebar-section" style="flex:1">
+      <div class="section-label">Últimas actualizaciones</div>
+      <div class="historial-lista" id="historial">
+        <div class="historial-item">
+          <div class="hist-texto" style="color: var(--gris); font-size:12px">Esperando datos...</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Mapa -->
+  <div id="mapa"></div>
+</div>
+
+<script>
+  // 🔧 CAMBIA ESTA URL por la URL de tu Google Apps Script
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHKnO-UMZ9GywKojn4t70AMRmvARQnzeXHnjKxJPGEmU9xZeQ6lUxYN9kuDYQjGr_uyQ/exec";
+
+  // --- MAPA ---
+  const mapa = L.map('mapa', { zoomControl: true }).setView([25.4232, -100.9976], 13);
+
+  // Tile oscuro
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(mapa);
+
+  // Íconos personalizados
+  function crearIcono(color, label) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="
+        background: ${color};
+        width: 36px; height: 36px;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        border: 3px solid #fff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        display:flex; align-items:center; justify-content:center;
+      "><span style="transform:rotate(45deg); font-size:14px; font-weight:700; color:#000;">${label}</span></div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 36],
+      popupAnchor: [0, -36]
+    });
+  }
+
+  const icono1 = crearIcono('#00E5FF', '1');
+  const icono2 = crearIcono('#FF6B35', '2');
+
+  let marcador1 = null, marcador2 = null;
+  let trail1 = [], trail2 = [];
+  let polyline1 = L.polyline([], { color: '#00E5FF', weight: 2, opacity: 0.4, dashArray: '6,6' }).addTo(mapa);
+  let polyline2 = L.polyline([], { color: '#FF6B35', weight: 2, opacity: 0.4, dashArray: '6,6' }).addTo(mapa);
+
+  let historial = [];
+  let datos = { u1: null, u2: null };
+  let contadores = { 1: 0, 2: 0 };
+
+  async function cargarDatos() {
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=get&t=${Date.now()}`);
+      const json = await res.json();
+
+      // json debe ser: { u1: {lat, lng, timestamp, count}, u2: {...} }
+      if (json.u1) actualizarUnidad(1, json.u1);
+      if (json.u2) actualizarUnidad(2, json.u2);
+
+      const hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('refreshInfo').textContent = `Última sync: ${hora}`;
+
+    } catch(e) {
+      console.log('Error cargando datos:', e);
+    }
+  }
+
+  function actualizarUnidad(num, info) {
+    const lat = parseFloat(info.lat);
+    const lng = parseFloat(info.lng);
+    const ts = info.timestamp || new Date().toLocaleTimeString('es-MX');
+
+    datos[`u${num}`] = { lat, lng, ts };
+
+    document.getElementById(`lat${num}`).textContent = lat.toFixed(5);
+    document.getElementById(`lng${num}`).textContent = lng.toFixed(5);
+    document.getElementById(`time${num}`).textContent = `🕐 ${ts}`;
+
+    const badge = document.getElementById(`badge${num}`);
+    badge.textContent = 'En línea';
+    badge.className = 'badge-estado badge-activo';
+
+    const card = document.getElementById(`card${num}`);
+    card.className = `unidad-card u${num}-activa`;
+
+    if (info.count !== undefined) {
+      document.getElementById(`cnt${num}`).textContent = info.count;
+    }
+
+    // Marcador en mapa
+    if (num === 1) {
+      if (!marcador1) {
+        marcador1 = L.marker([lat, lng], { icon: icono1 }).addTo(mapa)
+          .bindPopup(`<b style="color:#00E5FF">Unidad 1</b><br>Lat: ${lat.toFixed(5)}<br>Lng: ${lng.toFixed(5)}<br>${ts}`);
+      } else {
+        marcador1.setLatLng([lat, lng]);
+        marcador1.setPopupContent(`<b style="color:#00E5FF">Unidad 1</b><br>Lat: ${lat.toFixed(5)}<br>Lng: ${lng.toFixed(5)}<br>${ts}`);
+      }
+      trail1.push([lat, lng]);
+      if (trail1.length > 30) trail1.shift();
+      polyline1.setLatLngs(trail1);
+    } else {
+      if (!marcador2) {
+        marcador2 = L.marker([lat, lng], { icon: icono2 }).addTo(mapa)
+          .bindPopup(`<b style="color:#FF6B35">Unidad 2</b><br>Lat: ${lat.toFixed(5)}<br>Lng: ${lng.toFixed(5)}<br>${ts}`);
+      } else {
+        marcador2.setLatLng([lat, lng]);
+        marcador2.setPopupContent(`<b style="color:#FF6B35">Unidad 2</b><br>Lat: ${lat.toFixed(5)}<br>Lng: ${lng.toFixed(5)}<br>${ts}`);
+      }
+      trail2.push([lat, lng]);
+      if (trail2.length > 30) trail2.shift();
+      polyline2.setLatLngs(trail2);
+    }
+
+    // Historial
+    agregarHistorial(num, lat, lng, ts);
+  }
+
+  function agregarHistorial(num, lat, lng, ts) {
+    historial.unshift({ num, lat, lng, ts });
+    if (historial.length > 12) historial.pop();
+
+    const el = document.getElementById('historial');
+    el.innerHTML = historial.map(h => `
+      <div class="historial-item">
+        <div class="hist-dot u${h.num}"></div>
+        <div class="hist-texto">U${h.num} · ${parseFloat(h.lat).toFixed(4)}, ${parseFloat(h.lng).toFixed(4)}</div>
+        <div class="hist-hora">${h.ts}</div>
+      </div>
+    `).join('');
+  }
+
+  function centrarUnidad(num) {
+    const d = datos[`u${num}`];
+    if (d) {
+      mapa.flyTo([d.lat, d.lng], 15, { duration: 1.2 });
+    }
+  }
+
+  // Auto-refresh cada 15 segundos
+  cargarDatos();
+  setInterval(cargarDatos, 15000);
+</script>
+</body>
+</html>
