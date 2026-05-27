@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruta Huala-Provi · Monitor GPS</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+  :root {
+    --fondo: #080B10;
+    --panel: #0D1017;
+    --card: #111520;
+    --borde: #1C2235;
+    --texto: #C8D4E8;
+    --gris: #4A5570;
+    --u1: #7C3AED;   /* morado - Unidad 1 */
+    --u2: #059669;   /* verde - Unidad 2 */
+    --averia: #EF4444;
+    --amarillo: #F59E0B;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--fondo);
+    color: var(--texto);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--borde);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-bus {
+    font-size: 28px;
+    line-height: 1;
+  }
+
+  .logo-textos { display: flex; flex-direction: column; }
+
+  .logo-titulo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 3px;
+    color: #fff;
+    line-height: 1;
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--gris);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(5,150,105,0.1);
+    border: 1px solid rgba(5,150,105,0.3);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #10b981;
+    letter-spacing: 1px;
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: blink 1.5s ease infinite;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .hora-actual {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--gris);
+  }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 270px;
+    background: var(--panel);
+    border-right: 1px solid var(--borde);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--borde); border-radius: 2px; }
+
+  .sec { padding: 14px 16px; border-bottom: 1px solid var(--borde); }
+
+  .sec-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--gris);
+    text-transform: uppercase;
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 10px;
+  }
+
+  /* Cards de unidad */
+  .unidad-card {
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+    border: 1px solid var(--borde);
+    background: var(--card);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .unidad-card:last-child { margin-bottom: 0; }
+
+  .unidad-card.u1 { border-left: 3px solid var(--u1); }
+  .unidad-card.u2 { border-left: 3px solid var(--u2); }
+  .unidad-card.averiada { border-left: 3px solid var(--averia) !important; background: rgba(239,68,68,0.05); }
+  .unidad-card:hover { border-color: var(--gris); }
+
+  .uc-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .uc-nombre {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .uc-nombre.u1 { color: #a78bfa; }
+  .uc-nombre.u2 { color: #34d399; }
+
+  .uc-badge {
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-online { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+  .badge-offline { background: rgba(74,85,112,0.2); color: var(--gris); border: 1px solid var(--borde); }
+  .badge-averia { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+  .uc-coords {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .cc {
+    background: rgba(0,0,0,0.3);
+    border-radius: 6px;
+    padding: 5px 8px;
+  }
+
+  .cc-l { font-size: 8px; color: var(--gris); letter-spacing: 1px; text-transform: uppercase; }
+  .cc-v { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--texto); margin-top: 2px; }
+
+  .uc-time { font-size: 10px; color: var(--gris); font-family: 'DM Mono', monospace; }
+
+  /* Aviso avería */
+  .aviso-averia {
+    display: none;
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #f87171;
+    text-align: center;
+  }
+
+  .aviso-averia.visible { display: block; }
+
+  /* Historial */
+  .hist-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    background: var(--card);
+    border-radius: 7px;
+    border: 1px solid var(--borde);
+    margin-bottom: 5px;
+  }
+
+  .hist-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .hist-dot.u1 { background: var(--u1); }
+  .hist-dot.u2 { background: var(--u2); }
+  .hist-txt { flex:1; font-size: 10px; font-family:'DM Mono',monospace; color: var(--gris); }
+  .hist-hora { font-size: 9px; color: var(--gris); opacity: 0.6; font-family:'DM Mono',monospace; }
+
+  /* Puntos de referencia */
+  .ref-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    cursor: pointer;
+  }
+
+  .ref-item:last-child { border-bottom: none; }
+  .ref-icon { font-size: 14px; flex-shrink: 0; }
+  .ref-nombre { font-size: 11px; color: var(--texto); }
+  .ref-sub { font-size: 9px; color: var(--gris); }
+
+  /* ── MAPA ── */
+  #mapa { flex: 1; }
+
+  /* Popup */
+  .leaflet-popup-content-wrapper {
+    background: #0D1017 !important;
+    border: 1px solid #1C2235 !important;
+    color: #C8D4E8 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.7) !important;
+    font-family: 'DM Sans', sans-serif !important;
+  }
+  .leaflet-popup-tip { background: #0D1017 !important; }
+  .leaflet-popup-content { margin: 12px 14px !important; font-size: 12px !important; }
+
+  /* ── RESPONSIVE ── */
+  @media(max-width: 640px) {
+    .sidebar { width: 100%; height: 45vh; border-right: none; border-bottom: 1px solid var(--borde); }
+    .layout { flex-direction: column; }
+    #mapa { height: 55vh; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-bus">🚌</div>
+    <div class="logo-textos">
+      <div class="logo-titulo">RUTA HUALA-PROVI</div>
+      <div class="logo-sub">Hualahuises · Linares · Monitor GPS</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div>EN VIVO</div>
+    <div class="hora-actual" id="horaActual">--:--:--</div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Unidades -->
+    <div class="sec">
+      <div class="sec-label">Unidades en ruta</div>
+
+      <div class="unidad-card u1" id="card1" onclick="centrar(1)">
+        <div class="uc-top">
+          <div class="uc-nombre u1">🚌 UNIDAD 1</div>
+          <span class="uc-badge badge-offline" id="badge1">Sin señal</span>
+        </div>
+        <div class="uc-coords">
+          <div class="cc"><div class="cc-l">Latitud</div><div class="cc-v" id="lat1">—</div></div>
+          <div class="cc"><div class="cc-l">Longitud</div><div class="cc-v" id="lng1">—</div></div>
+        </div>
+        <div class="uc-time" id="time1">🕐 Sin actualizaciones</div>
+        <div class="aviso-averia" id="averia1">⚠️ Chofer reportó AVERÍA</div>
+      </div>
+
+      <div class="unidad-card u2" id="card2" onclick="centrar(2)">
+        <div class="uc-top">
+          <div class="uc-nombre u2">🚌 UNIDAD 2</div>
+          <span class="uc-badge badge-offline" id="badge2">Sin señal</span>
+        </div>
+        <div class="uc-coords">
+          <div class="cc"><div class="cc-l">Latitud</div><div class="cc-v" id="lat2">—</div></div>
+          <div class="cc"><div class="cc-l">Longitud</div><div class="cc-v" id="lng2">—</div></div>
+        </div>
+        <div class="uc-time" id="time2">🕐 Sin actualizaciones</div>
+        <div class="aviso-averia" id="averia2">⚠️ Chofer reportó AVERÍA</div>
+      </div>
+    </div>
+
+    <!-- Puntos de referencia -->
+    <div class="sec">
+      <div class="sec-label">Puntos de referencia</div>
+      <div id="refs">
+        <div class="ref-item" onclick="irA(24.8846019, -99.6737452, 'Plaza Hualahuises')">
+          <span class="ref-icon">🏛️</span>
+          <div><div class="ref-nombre">Plaza Hualahuises</div><div class="ref-sub">Inicio de ruta</div></div>
+        </div>
+        <div class="ref-item" onclick="irA(24.8632866, -99.5981347, 'UT Linares')">
+          <span class="ref-icon">🎓</span>
+          <div><div class="ref-nombre">UT Linares</div><div class="ref-sub">Universidad Tecnológica</div></div>
+        </div>
+        <div class="ref-item" onclick="irA(24.8639019, -99.5734267, 'Central de Autobuses')">
+          <span class="ref-icon">🚉</span>
+          <div><div class="ref-nombre">Central de Autobuses</div><div class="ref-sub">Linares</div></div>
+        </div>
+        <div class="ref-item" onclick="irA(24.859484, -99.5652076, 'Plaza Juárez')">
+          <span class="ref-icon">🌳</span>
+          <div><div class="ref-nombre">Plaza Juárez</div><div class="ref-sub">Centro de Linares</div></div>
+        </div>
+        <div class="ref-item" onclick="irA(24.8612058, -99.5484577, 'Hospital General')">
+          <span class="ref-icon">🏥</span>
+          <div><div class="ref-nombre">Hospital General</div><div class="ref-sub">SSNL Linares · Provileon</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Historial -->
+    <div class="sec" style="flex:1">
+      <div class="sec-label">Últimas actualizaciones</div>
+      <div id="historial">
+        <div class="hist-item"><div class="hist-txt" style="color:var(--gris)">Esperando datos...</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MAPA -->
+  <div id="mapa"></div>
+</div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHKnO-UMZ9GywKojn4t70AMRmvARQnzeXHnjKxJPGEmU9xZeQ6lUxYN9kuDYQjGr_uyQ/exec";
+
+// ── MAPA ──
+const mapa = L.map('mapa', { zoomControl: true }).setView([24.872, -99.62], 13);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO',
+  subdomains: 'abcd', maxZoom: 19
+}).addTo(mapa);
+
+// Ruta aproximada Hualahuises → Linares → Hospital
+const rutaCoords = [
+  [24.8846, -99.6737], // Plaza Hualahuises
+  [24.8820, -99.6600],
+  [24.8780, -99.6400],
+  [24.8740, -99.6200],
+  [24.8700, -99.6050],
+  [24.8670, -99.5950],
+  [24.8633, -99.5981], // UT Linares
+  [24.8640, -99.5850],
+  [24.8639, -99.5734], // Central Autobuses
+  [24.8620, -99.5690],
+  [24.8595, -99.5652], // Plaza Juárez
+  [24.8600, -99.5560],
+  [24.8612, -99.5485], // Hospital General
+];
+
+// Dibujar ruta con línea punteada
+L.polyline(rutaCoords, {
+  color: '#6366f1',
+  weight: 3,
+  opacity: 0.35,
+  dashArray: '8, 8'
+}).addTo(mapa);
+
+// Puntos de referencia en el mapa
+const puntos = [
+  { lat: 24.8846019, lng: -99.6737452, icon: '🏛️', nombre: 'Plaza Hualahuises' },
+  { lat: 24.8632866, lng: -99.5981347, icon: '🎓', nombre: 'UT Linares' },
+  { lat: 24.8639019, lng: -99.5734267, icon: '🚉', nombre: 'Central Autobuses' },
+  { lat: 24.859484,  lng: -99.5652076, icon: '🌳', nombre: 'Plaza Juárez' },
+  { lat: 24.8612058, lng: -99.5484577, icon: '🏥', nombre: 'Hospital General' },
+];
+
+puntos.forEach(p => {
+  L.marker([p.lat, p.lng], {
+    icon: L.divIcon({
+      className: '',
+      html: `<div style="
+        background:#0D1017;
+        border:1px solid #1C2235;
+        border-radius:8px;
+        padding:4px 7px;
+        font-size:11px;
+        color:#C8D4E8;
+        white-space:nowrap;
+        box-shadow:0 2px 8px rgba(0,0,0,0.5);
+        display:flex; align-items:center; gap:4px;
+      ">${p.icon} <span>${p.nombre}</span></div>`,
+      iconAnchor: [0, 0]
+    })
+  }).addTo(mapa).bindPopup(`<b>${p.icon} ${p.nombre}</b>`);
+});
+
+// ── ÍCONOS DE AUTOBÚS ──
+function iconoBus(num, averiado) {
+  const color = num === 1 ? '#7C3AED' : '#059669';
+  const colorBorde = num === 1 ? '#a78bfa' : '#34d399';
+  const emoji = averiado ? '🔴' : '🚌';
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      background:${color};
+      border: 2px solid ${colorBorde};
+      border-radius: 10px;
+      padding: 5px 8px;
+      font-size: 20px;
+      box-shadow: 0 0 0 3px ${color}44, 0 4px 14px rgba(0,0,0,0.6);
+      display:flex; flex-direction:column; align-items:center; gap:1px;
+      min-width: 44px; text-align:center;
+    ">
+      ${emoji}
+      <span style="font-size:9px;font-weight:700;color:#fff;letter-spacing:1px;font-family:sans-serif">U${num}</span>
+    </div>`,
+    iconSize: [50, 50],
+    iconAnchor: [25, 25],
+    popupAnchor: [0, -28]
+  });
+}
+
+let marcador1 = null, marcador2 = null;
+let trail1 = [], trail2 = [];
+let poly1 = L.polyline([], { color: '#a78bfa', weight: 2, opacity: 0.5 }).addTo(mapa);
+let poly2 = L.polyline([], { color: '#34d399', weight: 2, opacity: 0.5 }).addTo(mapa);
+let historial = [];
+let datos = {};
+let averia = { 1: false, 2: false };
+
+function actualizarUnidad(num, info) {
+  const lat = parseFloat(info.lat);
+  const lng = parseFloat(info.lng);
+  const ts = info.timestamp || '--:--';
+  const esAveria = info.averia == '1' || info.averia === true;
+
+  averia[num] = esAveria;
+  datos[num] = { lat, lng, ts };
+
+  // UI sidebar
+  document.getElementById(`lat${num}`).textContent = lat.toFixed(5);
+  document.getElementById(`lng${num}`).textContent = lng.toFixed(5);
+  document.getElementById(`time${num}`).textContent = `🕐 ${ts}`;
+
+  const badge = document.getElementById(`badge${num}`);
+  if (esAveria) {
+    badge.textContent = '⚠️ AVERÍA';
+    badge.className = 'uc-badge badge-averia';
+    document.getElementById(`card${num}`).classList.add('averiada');
+    document.getElementById(`averia${num}`).classList.add('visible');
+  } else {
+    badge.textContent = '● En ruta';
+    badge.className = 'uc-badge badge-online';
+    document.getElementById(`card${num}`).classList.remove('averiada');
+    document.getElementById(`averia${num}`).classList.remove('visible');
+  }
+
+  // Marcador mapa
+  const icono = iconoBus(num, esAveria);
+  const popupTxt = `<b style="color:${num===1?'#a78bfa':'#34d399'}">🚌 Unidad ${num}</b><br>
+    ${esAveria ? '<b style="color:#f87171">⚠️ AVERÍA REPORTADA</b><br>' : ''}
+    Lat: ${lat.toFixed(5)}<br>Lng: ${lng.toFixed(5)}<br>
+    Actualizado: ${ts}`;
+
+  if (num === 1) {
+    if (!marcador1) marcador1 = L.marker([lat, lng], { icon: icono }).addTo(mapa).bindPopup(popupTxt);
+    else { marcador1.setLatLng([lat, lng]); marcador1.setIcon(icono); marcador1.setPopupContent(popupTxt); }
+    trail1.push([lat, lng]); if (trail1.length > 40) trail1.shift();
+    poly1.setLatLngs(trail1);
+  } else {
+    if (!marcador2) marcador2 = L.marker([lat, lng], { icon: icono }).addTo(mapa).bindPopup(popupTxt);
+    else { marcador2.setLatLng([lat, lng]); marcador2.setIcon(icono); marcador2.setPopupContent(popupTxt); }
+    trail2.push([lat, lng]); if (trail2.length > 40) trail2.shift();
+    poly2.setLatLngs(trail2);
+  }
+
+  // Historial
+  historial.unshift({ num, lat, lng, ts, averia: esAveria });
+  if (historial.length > 15) historial.pop();
+  const el = document.getElementById('historial');
+  el.innerHTML = historial.map(h => `
+    <div class="hist-item">
+      <div class="hist-dot u${h.num}"></div>
+      <div class="hist-txt">U${h.num} · ${h.lat.toFixed(4)}, ${h.lng.toFixed(4)} ${h.averia ? '⚠️' : ''}</div>
+      <div class="hist-hora">${h.ts}</div>
+    </div>
+  `).join('');
+}
+
+async function cargarDatos() {
+  try {
+    const res = await fetch(`${SCRIPT_URL}?action=get&t=${Date.now()}`);
+    const json = await res.json();
+    if (json.u1) actualizarUnidad(1, json.u1);
+    if (json.u2) actualizarUnidad(2, json.u2);
+  } catch(e) { console.log('Error:', e); }
+}
+
+function centrar(num) {
+  const d = datos[num];
+  if (d) mapa.flyTo([d.lat, d.lng], 15, { duration: 1 });
+}
+
+function irA(lat, lng, nombre) {
+  mapa.flyTo([lat, lng], 16, { duration: 1 });
+}
+
+// Reloj
+function actualizarReloj() {
+  document.getElementById('horaActual').textContent =
+    new Date().toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+setInterval(actualizarReloj, 1000);
+actualizarReloj();
+
+// Auto-refresh
+cargarDatos();
+setInterval(cargarDatos, 15000);
+</script>
+</body>
+</html>
