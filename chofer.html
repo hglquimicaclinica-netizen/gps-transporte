@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#080B10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="GPS Chofer">
+<link rel="manifest" href="manifest.json">
+<title>GPS Chofer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&display=swap');
+
+  :root {
+    --verde: #10b981;
+    --rojo: #ef4444;
+    --amarillo: #f59e0b;
+    --fondo: #080B10;
+    --card: #0D1117;
+    --card2: #111520;
+    --borde: #1C2235;
+    --texto: #C8D4E8;
+    --gris: #4A5570;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  /* Evitar selección de texto y comportamiento de página web */
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--fondo);
+    color: var(--texto);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  /* Quitar el scroll bounce de iOS */
+  html {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 11px 14px;
+    background: var(--card);
+    border: 1px solid var(--borde);
+    border-radius: 14px;
+  }
+
+  .header-bus { font-size: 24px; }
+
+  .header-textos { flex: 1; }
+
+  .header-titulo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 17px;
+    letter-spacing: 2px;
+    color: #fff;
+    line-height: 1;
+  }
+
+  .header-sub { font-size: 10px; color: var(--gris); letter-spacing: 1px; }
+
+  /* ── SELECTOR UNIDAD ── */
+  .selector-wrap {
+    width: 100%;
+    max-width: 360px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .selector-label { font-size: 10px; color: var(--gris); letter-spacing: 1.5px; text-transform: uppercase; padding-left: 2px; }
+
+  .selector-select {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--borde);
+    color: var(--texto);
+    font-size: 16px;
+    font-weight: 700;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%234A5570' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── TARJETA ── */
+  .tarjeta {
+    background: var(--card);
+    border: 1px solid var(--borde);
+    border-radius: 20px;
+    padding: 22px 20px;
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  /* Banner */
+  .banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    transition: all 0.3s;
+    background: rgba(74,85,112,0.15);
+    border: 1px solid var(--borde);
+    color: var(--gris);
+  }
+
+  .banner.activo { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.3); color: var(--verde); }
+  .banner.error   { background: rgba(239,68,68,0.08);  border-color: rgba(239,68,68,0.3);  color: var(--rojo); }
+  .banner.averia-activa { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.3); color: var(--amarillo); }
+
+  .banner-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .banner.activo .banner-dot { animation: blink 1.5s ease infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* Botón GPS grande */
+  .btn-gps {
+    width: 155px;
+    height: 155px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    margin: 0 auto 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 35% 35%, #112a1a, #080f0a);
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.2), 0 0 0 8px rgba(16,185,129,0.05), 0 8px 30px rgba(0,0,0,0.7);
+    transition: transform 0.12s;
+    outline: none;
+    gap: 4px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .btn-gps:active { transform: scale(0.93); }
+
+  .btn-gps.activo {
+    box-shadow: 0 0 0 4px rgba(16,185,129,0.5), 0 0 0 14px rgba(16,185,129,0.08), 0 8px 30px rgba(0,0,0,0.7);
+    animation: pulsar 2s ease infinite;
+  }
+
+  @keyframes pulsar {
+    0%,100% { box-shadow: 0 0 0 4px rgba(16,185,129,0.5), 0 0 0 14px rgba(16,185,129,0.08), 0 8px 30px rgba(0,0,0,0.7); }
+    50%      { box-shadow: 0 0 0 6px rgba(16,185,129,0.3), 0 0 0 22px rgba(16,185,129,0.04), 0 8px 30px rgba(0,0,0,0.7); }
+  }
+
+  .btn-gps .icono { font-size: 52px; filter: drop-shadow(0 0 10px rgba(16,185,129,0.4)); }
+  .btn-gps .btn-lbl { font-family:'Bebas Neue',sans-serif; font-size:13px; letter-spacing:2px; color:var(--verde); opacity:0.85; }
+
+  /* Intervalo */
+  .intervalo-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+
+  .il { font-size: 12px; color: var(--gris); }
+
+  .is {
+    background: var(--card2);
+    border: 1px solid var(--borde);
+    color: var(--texto);
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 7px;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* Coords + stats */
+  .coords { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+
+  .cbox { background: rgba(0,0,0,0.3); border: 1px solid var(--borde); border-radius: 8px; padding: 8px 10px; text-align:left; }
+  .cl { font-size: 9px; color: var(--gris); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+  .cv { font-size: 12px; color: var(--verde); font-weight: 600; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; }
+  .sbox { background: rgba(0,0,0,0.3); border: 1px solid var(--borde); border-radius: 8px; padding: 8px; text-align:center; }
+  .sn { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--verde); line-height:1; }
+  .sl { font-size: 9px; color: var(--gris); letter-spacing:1px; text-transform:uppercase; margin-top:2px; }
+
+  /* ── BOTÓN AVERÍA ── */
+  .btn-averia {
+    width: 100%;
+    max-width: 360px;
+    padding: 15px;
+    border-radius: 14px;
+    border: 2px solid rgba(239,68,68,0.3);
+    background: rgba(239,68,68,0.06);
+    color: #f87171;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: none;
+    touch-action: manipulation;
+  }
+
+  .btn-averia.visible { display: block; }
+  .btn-averia:active { transform: scale(0.98); }
+  .btn-averia.reportada { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.08); color: var(--amarillo); }
+
+  /* ── MODAL AVERÍA (no interrumpe el GPS) ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 200;
+    align-items: flex-end; /* aparece desde abajo, menos intrusivo */
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .modal-overlay.visible { display: flex; }
+
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--borde);
+    border-radius: 20px 20px 16px 16px;
+    padding: 24px 20px 20px;
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+  }
+
+  .modal-icono { font-size: 44px; margin-bottom: 8px; }
+  .modal-titulo { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:2px; color:#f87171; margin-bottom:6px; }
+  .modal-texto { font-size:12px; color:var(--gris); line-height:1.5; margin-bottom:18px; }
+  .modal-nota { font-size:11px; color: var(--verde); margin-bottom: 16px; font-weight: 600; }
+
+  .modal-btns { display: flex; gap: 10px; }
+
+  .btn-modal {
+    flex: 1;
+    padding: 13px;
+    border-radius: 10px;
+    border: none;
+    font-family:'DM Sans',sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    touch-action: manipulation;
+  }
+
+  .btn-modal:active { transform: scale(0.97); }
+  .btn-modal-si { background: var(--rojo); color: #fff; }
+  .btn-modal-no { background: rgba(255,255,255,0.06); color: var(--gris); border: 1px solid var(--borde); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--verde);
+    color: #000;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 10px 22px;
+    border-radius: 50px;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    white-space: nowrap;
+    z-index: 300;
+    pointer-events: none;
+  }
+  .toast.visible { transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--rojo); color: #fff; }
+  .toast.warn  { background: var(--amarillo); color: #000; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-bus">🚌</div>
+  <div class="header-textos">
+    <div class="header-titulo">RUTA 57 · HUALA-PROVI</div>
+    <div class="header-sub">App del Chofer · GPS en tiempo real</div>
+  </div>
+</div>
+
+<!-- Selector unidad -->
+<div class="selector-wrap">
+  <div class="selector-label">Selecciona tu unidad</div>
+  <select class="selector-select" id="selUnidad">
+    <option value="1">🚌 Unidad 1</option>
+    <option value="2">🚌 Unidad 2</option>
+    <option value="3">🚌 Unidad 3</option>
+    <option value="4">🚌 Unidad 4</option>
+    <option value="5">🚌 Unidad 5</option>
+  </select>
+</div>
+
+<!-- Tarjeta principal -->
+<div class="tarjeta">
+
+  <div class="banner" id="banner">
+    <div class="banner-dot"></div>
+    <span id="bannerTxt">Presiona INICIAR para comenzar</span>
+  </div>
+
+  <button class="btn-gps" id="btnGps" onclick="toggleRastreo()">
+    <span class="icono">📍</span>
+    <span class="btn-lbl" id="btnLbl">INICIAR</span>
+  </button>
+
+  <div class="intervalo-row">
+    <span class="il">Enviar cada:</span>
+    <select class="is" id="intervalo">
+      <option value="15000">15 seg</option>
+      <option value="30000" selected>30 seg</option>
+      <option value="60000">1 min</option>
+    </select>
+  </div>
+
+  <div class="coords">
+    <div class="cbox"><div class="cl">Latitud</div><div class="cv" id="lat">—</div></div>
+    <div class="cbox"><div class="cl">Longitud</div><div class="cv" id="lng">—</div></div>
+  </div>
+
+  <div class="stats">
+    <div class="sbox"><div class="sn" id="cntOk">0</div><div class="sl">Envíos</div></div>
+    <div class="sbox"><div class="sn" id="cntErr">0</div><div class="sl">Errores</div></div>
+    <div class="sbox"><div class="sn" id="hora">—</div><div class="sl">Último</div></div>
+  </div>
+
+</div>
+
+<!-- Botón avería -->
+<button class="btn-averia" id="btnAveria" onclick="reportarAveria()">
+  ⚠️ REPORTAR AVERÍA
+</button>
+
+<!-- Modal avería — NO bloquea el GPS -->
+<div class="modal-overlay" id="modalAveria">
+  <div class="modal">
+    <div class="modal-icono">🚨</div>
+    <div class="modal-titulo">¿LLEVAS RATO PARADO?</div>
+    <div class="modal-texto">El sistema detectó que llevas tiempo sin avanzar.</div>
+    <div class="modal-nota">✅ El GPS sigue registrando normalmente</div>
+    <div class="modal-btns">
+      <button class="btn-modal btn-modal-no" onclick="cerrarModal()">No, todo bien</button>
+      <button class="btn-modal btn-modal-si" onclick="confirmarAveria()">Sí, estoy averiado</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHKnO-UMZ9GywKojn4t70AMRmvARQnzeXHnjKxJPGEmU9xZeQ6lUxYN9kuDYQjGr_uyQ/exec";
+
+// ── Tiempos de parada ──
+// Menos de este tiempo parado → normal (semáforo, tráfico)
+// Más de este tiempo → preguntar si hay avería
+const MINUTOS_PARA_PREGUNTAR = 8; // 8 minutos parado = pregunta
+const METROS_MINIMOS = 30;        // menos de 30m de movimiento = "parado"
+
+let rastreando = false;
+let intervaloId = null;
+let watchId = null;
+let wakeLock = null;
+let cntOk = 0, cntErr = 0;
+let averiado = false;
+let ultimaPos = null;
+let timerAveria = null;
+let modalMostrado = false;
+
+// Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ── PERMISOS: pedir al iniciar, no de forma permanente ──
+async function pedirPermisoGPS() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject('no-gps'); return; }
+
+    // Solo pedir una vez al presionar el botón — el navegador recuerda
+    navigator.geolocation.getCurrentPosition(
+      () => resolve(true),
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) reject('denegado');
+        else resolve(true); // timeout u otros errores no son denegación
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+  });
+}
+
+async function toggleRastreo() {
+  if (!rastreando) await iniciar();
+  else detener();
+}
+
+async function iniciar() {
+  // Pedir permiso GPS al presionar el botón
+  try {
+    await pedirPermisoGPS();
+  } catch(e) {
+    if (e === 'denegado') {
+      toast('❌ Permiso de GPS denegado. Ve a Ajustes y actívalo.', 'error');
+    } else {
+      toast('❌ GPS no disponible en este dispositivo', 'error');
+    }
+    return;
+  }
+
+  rastreando = true;
+  averiado = false;
+  ultimaPos = null;
+  modalMostrado = false;
+
+  document.getElementById('selUnidad').disabled = true;
+  document.getElementById('btnGps').classList.add('activo');
+  document.getElementById('btnLbl').textContent = 'DETENER';
+  document.getElementById('btnAveria').classList.add('visible');
+  setBanner('activo', '🟢 Rastreo activo');
+
+  await solicitarWakeLock();
+
+  // Primer envío inmediato
+  enviar();
+
+  // Intervalo de envíos
+  const ms = parseInt(document.getElementById('intervalo').value);
+  intervaloId = setInterval(enviar, ms);
+
+  // watchPosition para actualizar coords en pantalla Y detectar movimiento
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      document.getElementById('lat').textContent = lat.toFixed(5);
+      document.getElementById('lng').textContent = lng.toFixed(5);
+      verificarMovimiento(lat, lng);
+    },
+    () => {},
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+  );
+
+  toast('✅ Rastreo iniciado');
+}
+
+function detener() {
+  rastreando = false;
+  averiado = false;
+  clearInterval(intervaloId);
+  clearTimeout(timerAveria);
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  liberarWakeLock();
+  cerrarModal();
+
+  document.getElementById('selUnidad').disabled = false;
+  document.getElementById('btnGps').classList.remove('activo');
+  document.getElementById('btnLbl').textContent = 'INICIAR';
+  document.getElementById('btnAveria').classList.remove('visible', 'reportada');
+  document.getElementById('btnAveria').textContent = '⚠️ REPORTAR AVERÍA';
+  setBanner('', 'Presiona INICIAR para comenzar');
+  toast('⏹ Rastreo detenido', 'warn');
+}
+
+// ── VERIFICAR MOVIMIENTO ──
+// Solo pregunta si lleva MÁS de 8 minutos completamente parado
+function verificarMovimiento(lat, lng) {
+  if (!ultimaPos) {
+    ultimaPos = { lat, lng, tiempo: Date.now() };
+    return;
+  }
+
+  // Calcular distancia en metros (aproximada)
+  const dlat = (lat - ultimaPos.lat) * 111000;
+  const dlng = (lng - ultimaPos.lng) * 111000 * Math.cos(lat * Math.PI / 180);
+  const dist = Math.sqrt(dlat * dlat + dlng * dlng);
+
+  if (dist > METROS_MINIMOS) {
+    // Se movió — reiniciar todo
+    ultimaPos = { lat, lng, tiempo: Date.now() };
+    clearTimeout(timerAveria);
+    timerAveria = null;
+    modalMostrado = false;
+    if (averiado) {
+      // Si estaba averiado y se movió, cancelar avería automáticamente
+      averiado = false;
+      document.getElementById('btnAveria').classList.remove('reportada');
+      document.getElementById('btnAveria').textContent = '⚠️ REPORTAR AVERÍA';
+      setBanner('activo', '🟢 Rastreo activo · avería cancelada');
+    }
+  } else {
+    // No se movió — iniciar timer si no existe
+    if (!timerAveria && !modalMostrado && !averiado) {
+      timerAveria = setTimeout(() => {
+        if (rastreando && !averiado) mostrarModalAveria();
+      }, MINUTOS_PARA_PREGUNTAR * 60 * 1000);
+    }
+  }
+}
+
+// ── ENVÍO GPS — siempre continúa aunque haya modal abierto ──
+function enviar() {
+  if (!rastreando) return;
+
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      const lat = pos.coords.latitude.toFixed(6);
+      const lng = pos.coords.longitude.toFixed(6);
+      const unidad = document.getElementById('selUnidad').value;
+
+      document.getElementById('lat').textContent = lat;
+      document.getElementById('lng').textContent = lng;
+
+      try {
+        const url = `${SCRIPT_URL}?unidad=${unidad}&lat=${lat}&lng=${lng}&ruta=57&averia=${averiado ? 1 : 0}`;
+        await fetch(url, { mode: 'no-cors' });
+
+        cntOk++;
+        document.getElementById('cntOk').textContent = cntOk;
+        document.getElementById('hora').textContent =
+          new Date().toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' });
+
+        if (!averiado) setBanner('activo', `🟢 Enviando · U${unidad}`);
+
+      } catch(e) {
+        cntErr++;
+        document.getElementById('cntErr').textContent = cntErr;
+        setBanner('error', '🔴 Sin conexión — reintentando');
+      }
+    },
+    () => {
+      cntErr++;
+      document.getElementById('cntErr').textContent = cntErr;
+    },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 }
+  );
+}
+
+function mostrarModalAveria() {
+  modalMostrado = true;
+  timerAveria = null;
+  // El GPS SIGUE enviando — el modal es solo informativo
+  document.getElementById('modalAveria').classList.add('visible');
+}
+
+function cerrarModal() {
+  document.getElementById('modalAveria').classList.remove('visible');
+  // Reiniciar timer para no preguntar de nuevo por un rato
+  timerAveria = null;
+  // Dar 10 minutos de margen antes de volver a preguntar
+  if (rastreando && !averiado) {
+    timerAveria = setTimeout(() => {
+      if (rastreando && !averiado) {
+        modalMostrado = false; // permitir preguntar de nuevo
+      }
+    }, 10 * 60 * 1000);
+  }
+}
+
+function reportarAveria() {
+  confirmarAveria();
+}
+
+function confirmarAveria() {
+  averiado = true;
+  cerrarModal();
+  document.getElementById('btnAveria').classList.add('reportada');
+  document.getElementById('btnAveria').textContent = '🔴 AVERÍA REPORTADA — Toca si se resuelve';
+  setBanner('averia-activa', '⚠️ Avería reportada al despachador');
+  enviar(); // envío inmediato con flag de avería
+  toast('🚨 Avería reportada', 'warn');
+}
+
+// Toque en botón avería cuando ya está reportada = cancelar
+document.getElementById('btnAveria').addEventListener('click', function() {
+  if (averiado) {
+    averiado = false;
+    this.classList.remove('reportada');
+    this.textContent = '⚠️ REPORTAR AVERÍA';
+    setBanner('activo', '🟢 Avería cancelada — en ruta');
+    enviar();
+    toast('✅ Avería cancelada');
+  }
+});
+
+function setBanner(tipo, txt) {
+  const b = document.getElementById('banner');
+  b.className = 'banner' + (tipo ? ' ' + tipo : '');
+  document.getElementById('bannerTxt').textContent = txt;
+}
+
+async function solicitarWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => {
+        if (rastreando) setTimeout(solicitarWakeLock, 1000);
+      });
+    } catch(e) {}
+  }
+}
+
+function liberarWakeLock() {
+  if (wakeLock) { wakeLock.release(); wakeLock = null; }
+}
+
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && rastreando && !wakeLock) {
+    await solicitarWakeLock();
+  }
+});
+
+function toast(msg, tipo = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast visible' + (tipo ? ' ' + tipo : '');
+  setTimeout(() => t.classList.remove('visible'), 3000);
+}
+</script>
+</body>
+</html>
