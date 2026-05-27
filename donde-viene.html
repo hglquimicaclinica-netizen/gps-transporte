@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta property="og:title" content="¿Dónde viene el camión? · Ruta 57 Huala-Provi">
+<meta property="og:description" content="Ve en tiempo real por dónde viene el camión de la Ruta 57 Hualahuises-Linares.">
+<meta property="og:image" content="https://hglquimicaclinica-netizen.github.io/gps-transporte/preview.png">
+<meta property="og:url" content="https://hglquimicaclinica-netizen.github.io/gps-transporte/donde-viene.html">
+<title>¿Dónde viene el camión? · Ruta 57</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&display=swap');
+
+  :root {
+    --verde: #059669;
+    --morado: #7c3aed;
+    --rojo: #dc2626;
+    --azul: #2563eb;
+    --fondo: #f8fafc;
+    --card: #ffffff;
+    --borde: #e2e8f0;
+    --texto: #1e293b;
+    --gris: #64748b;
+    --gris-claro: #f1f5f9;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--fondo);
+    color: var(--texto);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── HEADER GRANDE Y CLARO ── */
+  header {
+    background: #fff;
+    border-bottom: 2px solid var(--borde);
+    padding: 16px 20px 14px;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  .bus-emoji { font-size: 38px; display: block; margin-bottom: 4px; }
+
+  .titulo-grande {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 2px;
+    color: var(--texto);
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+
+  .subtitulo {
+    font-size: 14px;
+    color: var(--gris);
+    margin-bottom: 10px;
+  }
+
+  /* Badge en vivo */
+  .live-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #dcfce7;
+    border: 1.5px solid #86efac;
+    color: #15803d;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 14px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #16a34a;
+    animation: blink 1.5s ease infinite;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .hora-pill {
+    font-size: 12px;
+    color: var(--gris);
+    background: var(--gris-claro);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+
+  /* ── TARJETAS DE UNIDADES ── */
+  .unidades-row {
+    display: flex;
+    gap: 10px;
+    padding: 14px 14px 10px;
+    background: #fff;
+    border-bottom: 1px solid var(--borde);
+    overflow-x: auto;
+  }
+
+  .unidad-pill {
+    flex: 1;
+    min-width: 140px;
+    border-radius: 14px;
+    padding: 12px 14px;
+    border: 2px solid var(--borde);
+    background: var(--fondo);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .unidad-pill:active { transform: scale(0.97); }
+  .unidad-pill.u1-sel { border-color: var(--morado); background: #f5f3ff; }
+  .unidad-pill.u2-sel { border-color: var(--verde); background: #f0fdf4; }
+
+  .up-bus { font-size: 24px; display: block; margin-bottom: 3px; }
+
+  .up-nombre {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px;
+    letter-spacing: 1.5px;
+    color: var(--texto);
+  }
+
+  .up-estado {
+    font-size: 11px;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+
+  .up-estado.en-ruta { color: var(--verde); }
+  .up-estado.sin-senal { color: var(--gris); }
+  .up-estado.averia { color: var(--rojo); }
+
+  .up-direccion {
+    font-size: 10px;
+    color: var(--gris);
+    margin-top: 3px;
+    line-height: 1.3;
+  }
+
+  /* ── MAPA ── */
+  #mapa {
+    flex: 1;
+    min-height: 380px;
+  }
+
+  /* ── FOOTER INFO ── */
+  footer {
+    background: #fff;
+    border-top: 1px solid var(--borde);
+    padding: 14px 16px;
+    text-align: center;
+  }
+
+  .footer-titulo {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--texto);
+    margin-bottom: 6px;
+  }
+
+  .paradas-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+
+  .parada-chip {
+    background: var(--gris-claro);
+    border: 1px solid var(--borde);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: var(--gris);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .parada-chip:active { background: #dbeafe; border-color: #93c5fd; color: var(--azul); }
+
+  .footer-nota {
+    font-size: 11px;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+
+  /* Popup estilo claro */
+  .leaflet-popup-content-wrapper {
+    background: #fff !important;
+    border: 2px solid var(--borde) !important;
+    color: var(--texto) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+    font-family: 'DM Sans', sans-serif !important;
+  }
+  .leaflet-popup-tip { background: #fff !important; }
+  .leaflet-popup-content { margin: 12px 16px !important; font-size: 13px !important; line-height: 1.6 !important; }
+
+  /* Sin señal banner */
+  .sin-senal-banner {
+    display: none;
+    background: #fef9c3;
+    border-bottom: 1px solid #fde047;
+    padding: 10px 16px;
+    text-align: center;
+    font-size: 13px;
+    color: #854d0e;
+    font-weight: 600;
+  }
+  .sin-senal-banner.visible { display: block; }
+
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <span class="bus-emoji">🚌</span>
+  <div class="titulo-grande">RUTA 57 · HUALA-PROVI</div>
+  <div class="subtitulo">Hualahuises — Linares</div>
+  <div class="live-row">
+    <div class="live-pill"><div class="live-dot"></div>EN VIVO</div>
+    <div class="hora-pill" id="horaActual">--:--</div>
+  </div>
+</header>
+
+<!-- AVISO SIN SEÑAL -->
+<div class="sin-senal-banner" id="bannerSinSenal">
+  ⚠️ El camión no está enviando señal en este momento. Intenta de nuevo en unos minutos.
+</div>
+
+<!-- TARJETAS DE UNIDADES -->
+<div class="unidades-row" id="unidadesRow">
+  <!-- Se generan dinámicamente -->
+</div>
+
+<!-- MAPA -->
+<div id="mapa"></div>
+
+<!-- FOOTER CON PARADAS -->
+<footer>
+  <div class="footer-titulo">📍 Toca una parada para verla en el mapa</div>
+  <div class="paradas-grid">
+    <div class="parada-chip" onclick="irA(24.8846, -99.6737, 'Plaza de Hualahuises')">🏛️ Plaza Hualahuises</div>
+    <div class="parada-chip" onclick="irA(24.878, -99.665, 'La Magueyada')">🌵 La Magueyada</div>
+    <div class="parada-chip" onclick="irA(24.872, -99.650, 'Pque. Béisbol Santa Rosa')">⚾ Béisbol Santa Rosa</div>
+    <div class="parada-chip" onclick="irA(24.869, -99.632, 'Col. Camachito')">🏘️ Col. Camachito</div>
+    <div class="parada-chip" onclick="irA(24.8633, -99.5981, 'UT Linares')">🎓 UT Linares</div>
+    <div class="parada-chip" onclick="irA(24.864, -99.585, 'La Misión Villegas')">⛪ La Misión Villegas</div>
+    <div class="parada-chip" onclick="irA(24.862, -99.578, 'Parisina')">🧵 Parisina</div>
+    <div class="parada-chip" onclick="irA(24.8639, -99.5734, 'Central de Autobuses')">🚉 Central Autobuses</div>
+    <div class="parada-chip" onclick="irA(24.861, -99.570, 'Bodega Aurrera')">🛒 Bodega Aurrera</div>
+    <div class="parada-chip" onclick="irA(24.860, -99.567, 'La Misión Díaz-Ordaz')">⛪ La Misión Díaz-Ordaz</div>
+    <div class="parada-chip" onclick="irA(24.8595, -99.5652, 'Plaza Juárez')">🌳 Plaza Juárez</div>
+    <div class="parada-chip" onclick="irA(24.8612, -99.5485, 'Hospital General')">🏥 Hospital General</div>
+  </div>
+  <div class="footer-nota">
+    🔄 Se actualiza automáticamente cada 15 segundos<br>
+    Ruta 57 · Hualahuises ↔ Linares
+  </div>
+</footer>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHKnO-UMZ9GywKojn4t70AMRmvARQnzeXHnjKxJPGEmU9xZeQ6lUxYN9kuDYQjGr_uyQ/exec";
+
+// Límites del mapa — solo Linares y Hualahuises
+const LIMITES = L.latLngBounds(
+  [24.840, -99.720], // suroeste
+  [24.910, -99.520]  // noreste
+);
+
+const mapa = L.map('mapa', {
+  zoomControl: true,
+  minZoom: 12,
+  maxZoom: 17,
+  maxBounds: LIMITES,
+  maxBoundsViscosity: 1.0
+}).setView([24.872, -99.62], 13);
+
+// Mapa BLANCO (claro)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO',
+  subdomains: 'abcd',
+  maxZoom: 19
+}).addTo(mapa);
+
+// Ruta aproximada
+const rutaCoords = [
+  [24.8846, -99.6737],
+  [24.8820, -99.6600],
+  [24.878,  -99.6650],
+  [24.875,  -99.658],
+  [24.872,  -99.650],
+  [24.869,  -99.632],
+  [24.867,  -99.618],
+  [24.866,  -99.605],
+  [24.8633, -99.5981],
+  [24.864,  -99.5850],
+  [24.862,  -99.578],
+  [24.8639, -99.5734],
+  [24.861,  -99.570],
+  [24.860,  -99.567],
+  [24.8595, -99.5652],
+  [24.860,  -99.556],
+  [24.8612, -99.5485],
+];
+
+L.polyline(rutaCoords, {
+  color: '#2563eb',
+  weight: 4,
+  opacity: 0.3,
+  dashArray: '10, 8'
+}).addTo(mapa);
+
+// Puntos de parada en el mapa
+const paradas = [
+  { lat: 24.8846, lng: -99.6737, icon: '🏛️', nombre: 'Plaza Hualahuises', sub: 'Inicio / Final de ruta' },
+  { lat: 24.878,  lng: -99.665,  icon: '🌵', nombre: 'La Magueyada', sub: '' },
+  { lat: 24.872,  lng: -99.650,  icon: '⚾', nombre: 'Béisbol Santa Rosa', sub: '' },
+  { lat: 24.869,  lng: -99.632,  icon: '🏘️', nombre: 'Col. Camachito', sub: '' },
+  { lat: 24.8633, lng: -99.5981, icon: '🎓', nombre: 'UT Linares', sub: 'Universidad Tecnológica' },
+  { lat: 24.864,  lng: -99.585,  icon: '⛪', nombre: 'La Misión Villegas', sub: '' },
+  { lat: 24.862,  lng: -99.578,  icon: '🧵', nombre: 'Parisina', sub: '' },
+  { lat: 24.8639, lng: -99.5734, icon: '🚉', nombre: 'Central Autobuses', sub: 'Linares' },
+  { lat: 24.861,  lng: -99.570,  icon: '🛒', nombre: 'Bodega Aurrera', sub: '' },
+  { lat: 24.860,  lng: -99.567,  icon: '⛪', nombre: 'La Misión Díaz-Ordaz', sub: '' },
+  { lat: 24.8595, lng: -99.5652, icon: '🌳', nombre: 'Plaza Juárez', sub: 'Centro de Linares' },
+  { lat: 24.8612, lng: -99.5485, icon: '🏥', nombre: 'Hospital General', sub: 'SSNL · Provileon' },
+];
+
+paradas.forEach(p => {
+  L.marker([p.lat, p.lng], {
+    icon: L.divIcon({
+      className: '',
+      html: `<div style="
+        background:#fff;
+        border:1.5px solid #cbd5e1;
+        border-radius:8px;
+        padding:3px 7px;
+        font-size:11px;
+        color:#334155;
+        white-space:nowrap;
+        box-shadow:0 2px 6px rgba(0,0,0,0.1);
+        display:flex; align-items:center; gap:3px;
+      ">${p.icon} ${p.nombre}</div>`,
+      iconAnchor: [0, 0]
+    })
+  }).addTo(mapa)
+    .bindPopup(`<b>${p.icon} ${p.nombre}</b>${p.sub ? '<br><span style="color:#64748b;font-size:11px">'+p.sub+'</span>' : ''}`);
+});
+
+// ── ÍCONOS CAMIÓN ──
+function iconoCamion(num, averiado) {
+  const color = num === 1 ? '#7c3aed' : '#059669';
+  const borde = num === 1 ? '#a78bfa' : '#34d399';
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      background:${color};
+      border:3px solid ${borde};
+      border-radius:12px;
+      padding:6px 10px;
+      box-shadow:0 0 0 3px ${color}33, 0 4px 14px rgba(0,0,0,0.25);
+      display:flex; flex-direction:column; align-items:center; gap:2px;
+      min-width:48px; text-align:center;
+    ">
+      <span style="font-size:22px">${averiado ? '🔴' : '🚌'}</span>
+      <span style="font-size:10px;font-weight:800;color:#fff;letter-spacing:1px;font-family:sans-serif">U${num}</span>
+    </div>`,
+    iconSize: [54, 54],
+    iconAnchor: [27, 27],
+    popupAnchor: [0, -30]
+  });
+}
+
+// Detectar dirección según longitud
+function detectarDireccion(lng) {
+  // Hualahuises está al oeste (~-99.67), Linares al este (~-99.57)
+  // Comparamos con el centro de la ruta
+  return lng < -99.62 ? '➡️ Hacia Linares' : '⬅️ Hacia Hualahuises';
+}
+
+let marcadores = {};
+let datos = {};
+let hayDatos = false;
+
+function iconoUnidad(num, averiado, enLinea) {
+  const colores = { 1: { bg: '#7c3aed', borde: '#a78bfa', bgSel: '#f5f3ff', bdSel: '#7c3aed' },
+                    2: { bg: '#059669', borde: '#34d399', bgSel: '#f0fdf4', bdSel: '#059669' },
+                    3: { bg: '#d97706', borde: '#fbbf24', bgSel: '#fffbeb', bdSel: '#d97706' },
+                    4: { bg: '#dc2626', borde: '#f87171', bgSel: '#fef2f2', bdSel: '#dc2626' },
+                    5: { bg: '#0284c7', borde: '#38bdf8', bgSel: '#f0f9ff', bdSel: '#0284c7' } };
+  return colores[num] || colores[1];
+}
+
+function renderUnidades(json) {
+  const row = document.getElementById('unidadesRow');
+  const unidades = [];
+
+  for (let i = 1; i <= 5; i++) {
+    const key = `u${i}`;
+    if (json[key]) unidades.push({ num: i, info: json[key] });
+  }
+
+  if (unidades.length === 0) {
+    row.innerHTML = `<div style="flex:1;text-align:center;padding:14px;color:#64748b;font-size:13px">
+      Sin camiones en línea en este momento</div>`;
+    return;
+  }
+
+  row.innerHTML = unidades.map(u => {
+    const averia = u.info.averia == '1';
+    const dir = detectarDireccion(parseFloat(u.info.lng));
+    const c = iconoUnidad(u.num);
+    return `
+      <div class="unidad-pill" id="pill${u.num}" onclick="centrar(${u.num})"
+        style="border-color:${c.bdSel}; background:${c.bgSel}">
+        <span class="up-bus">${averia ? '🔴' : '🚌'}</span>
+        <div class="up-nombre">Unidad ${u.num}</div>
+        <div class="up-estado ${averia ? 'averia' : 'en-ruta'}">
+          ${averia ? '⚠️ Avería reportada' : '● En ruta'}
+        </div>
+        <div class="up-direccion">${dir}</div>
+      </div>`;
+  }).join('');
+}
+
+async function cargarDatos() {
+  try {
+    const res = await fetch(`${SCRIPT_URL}?action=get&t=${Date.now()}`);
+    const json = await res.json();
+
+    hayDatos = Object.keys(json).length > 0;
+    document.getElementById('bannerSinSenal').classList.toggle('visible', !hayDatos);
+
+    renderUnidades(json);
+
+    // Actualizar marcadores
+    for (let i = 1; i <= 5; i++) {
+      const key = `u${i}`;
+      if (!json[key]) continue;
+      const info = json[key];
+      const lat = parseFloat(info.lat);
+      const lng = parseFloat(info.lng);
+      const averia = info.averia == '1';
+      const dir = detectarDireccion(lng);
+      const icono = iconoCamion(i, averia);
+
+      datos[i] = { lat, lng };
+
+      const popup = `
+        <b style="font-size:15px">🚌 Unidad ${i}</b><br>
+        ${averia ? '<b style="color:#dc2626">⚠️ AVERÍA REPORTADA</b><br>' : ''}
+        <span style="color:#059669;font-weight:700">${dir}</span><br>
+        <span style="color:#64748b;font-size:11px">Actualizado: ${info.timestamp || '--'}</span>
+      `;
+
+      if (!marcadores[i]) {
+        marcadores[i] = L.marker([lat, lng], { icon: icono }).addTo(mapa).bindPopup(popup);
+      } else {
+        marcadores[i].setLatLng([lat, lng]);
+        marcadores[i].setIcon(icono);
+        marcadores[i].setPopupContent(popup);
+      }
+    }
+
+  } catch(e) {
+    document.getElementById('bannerSinSenal').classList.add('visible');
+  }
+}
+
+function centrar(num) {
+  const d = datos[num];
+  if (d) mapa.flyTo([d.lat, d.lng], 15, { duration: 1 });
+}
+
+function irA(lat, lng, nombre) {
+  mapa.flyTo([lat, lng], 16, { duration: 0.8 });
+}
+
+// Reloj
+setInterval(() => {
+  document.getElementById('horaActual').textContent =
+    new Date().toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' });
+}, 1000);
+
+cargarDatos();
+setInterval(cargarDatos, 15000);
+</script>
+</body>
+</html>
